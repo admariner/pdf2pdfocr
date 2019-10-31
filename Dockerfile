@@ -21,8 +21,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   python3-pip \
   python3-setuptools\
   tesseract-ocr \
-  tesseract-ocr-osd tesseract-ocr-por tesseract-ocr-eng
-#  tesseract-ocr-all
+  tesseract-ocr-osd tesseract-ocr-por tesseract-ocr-eng \
+  tesseract-ocr-all
 
 # Allow IM to process PDF
 RUN rm /etc/ImageMagick-6/policy.xml
