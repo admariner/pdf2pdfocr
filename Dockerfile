@@ -52,4 +52,3 @@ USER docker
 WORKDIR /home/docker
 
 ENTRYPOINT ["/opt/install/docker-wrapper.sh"]
-#
