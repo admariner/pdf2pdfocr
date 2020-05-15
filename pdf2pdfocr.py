@@ -38,13 +38,14 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 import PyPDF2
+from PyPDF2.generic import ByteStringObject
 from bs4 import BeautifulSoup
 from reportlab.lib.units import inch
 from reportlab.pdfgen.canvas import Canvas
 
 __author__ = 'Leonardo F. Cardoso'
 
-VERSION = '1.4.0'
+VERSION = '1.5.1'
 
 
 def eprint(*args, **kwargs):
@@ -472,11 +473,22 @@ class Pdf2PdfOcr:
         if self.parallel_threshold is None:
             self.parallel_threshold = 1  # Default
         self.create_text_mode = args.create_text_mode
-        self.force_out_mode = args.output_file is not None
-        if self.force_out_mode:
+        self.force_out_file_mode = args.output_file is not None
+        if self.force_out_file_mode:
             self.force_out_file = args.output_file
         else:
             self.force_out_file = ""
+        self.force_out_dir_mode = args.output_dir is not None
+        if self.force_out_dir_mode:
+            self.force_out_dir = args.output_dir
+        else:
+            self.force_out_dir = ""
+        if self.force_out_file != "" and self.force_out_dir != "":
+            eprint("It's not possible to force output name and dir at the same time. Please use '-o' OR '-O'")
+            exit(1)
+        if self.force_out_dir_mode and (not os.path.isdir(self.force_out_dir)):
+            eprint("Invalid output directory: {0}".format(self.force_out_dir))
+            exit(1)
         self.tess_langs = args.tess_langs
         if self.tess_langs is None:
             self.tess_langs = "por+eng"  # Default
@@ -640,18 +652,21 @@ class Pdf2PdfOcr:
         paypal_donate_link = "https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=leonardo%2ef%2ecardoso%40gmail%2ecom&lc=US&item_name" \
                              "=pdf2pdfocr%20development&currency_code=USD&bn=PP%2dDonationsBF%3abtn_donateCC_LG%2egif%3aNonHosted"
         flattr_donate_link = "https://flattr.com/@pdf2pdfocr.devel"
+        tippin_donate_link = "https://tippin.me/@LeoFCardoso"
         bitcoin_address = "173D1zQQyzvCCCek9b1SpDvh7JikBEdtRJ"
-        nbr_address = "N918uWiGba4ZcCBsc8nZrqhRaucjAZvhnMQ6WA7ubKoNhgNmWS1xn1pThP9HJG6rWqVEEWSPRkJff6dQjCEtbgtMP2Eudcr"
+        dogecoin_address = "D94hD2qPnkxmZk8qa1b6F1d7NfUrPkmcrG"
         success_message = """Success!
 This software is free, but if you like it, please donate to support new features.
 ---> Paypal
 {0}
 ---> Flattr
 {1}
----> Bitcoin (BTC) address: {2}
----> Niobio Cash (NBR) address: {3}
+---> Tippin.me
+{2}
+---> Bitcoin (BTC) address: {3}
+---> Dogecoin (DOGE) address: {4}
 ---> Please contact for donations in other cryptocurrencies - https://github.com/LeoFCardoso/pdf2pdfocr""".format(
-            paypal_donate_link, flattr_donate_link, bitcoin_address, nbr_address)
+            paypal_donate_link, flattr_donate_link, tippin_donate_link, bitcoin_address, dogecoin_address)
         self.log(success_message)
 
     def build_final_output(self):
@@ -951,11 +966,14 @@ This software is free, but if you like it, please donate to support new features
             Pdf2PdfOcr.best_effort_remove(self.output_file_text)
 
     def define_output_files(self):
-        if self.force_out_mode:
+        if self.force_out_file_mode:
             self.output_file = self.force_out_file
         else:
+            if self.force_out_dir_mode:
+                output_dir = os.path.abspath(self.force_out_dir)
+            else:
+                output_dir = os.path.dirname(self.input_file)
             output_name_no_ext = os.path.splitext(os.path.basename(self.input_file))[0]
-            output_dir = os.path.dirname(self.input_file)
             self.output_file = output_dir + os.path.sep + output_name_no_ext + "-OCR.pdf"
         #
         self.output_file_text = self.output_file + ".txt"
@@ -1123,6 +1141,9 @@ This software is free, but if you like it, please donate to support new features
             for key in self.input_file_metadata:
                 value = self.input_file_metadata[key]
                 if key == producer_key:
+                    if type(value) == ByteStringObject:
+                        value = str(value, errors="ignore")
+                        value = "".join(filter(lambda x: x in string.printable, value))  # Try to remove unprintable
                     value = value + "; " + our_name
                     read_producer = True
                 #
@@ -1204,7 +1225,9 @@ Examples:
     parser.add_argument("-w", dest="create_text_mode", action="store_true", default=False,
                         help="also create a text file at same location of PDF OCR file [tesseract only]")
     parser.add_argument("-o", dest="output_file", action="store", required=False,
-                        help="force output file to the specified location")
+                        help="path for output file")
+    parser.add_argument("-O", dest="output_dir", action="store", required=False,
+                        help="path for output directory")
     parser.add_argument("-p", dest="no_effect_01", action="store_true", default=False,
                         help="no effect, do not use (reverse compatibility)")
     parser.add_argument("-r", dest="image_resolution", action="store", default=300, type=int,
